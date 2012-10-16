@@ -107,7 +107,7 @@ public class AucScan {
 		// select item, buyout, sum(qty) from aucData group by item, buyout
 		for (AuctionsJson item : aucData) {
 			if ((item.getItem() == 72092 || item.getItem() == 72093)
-					&& item.getBuyoutPerItem() < 30000 && item.getBuyout() > 0) {
+					&& item.getBuyoutPerItem() < 40000 && item.getBuyout() > 0) {
 				// println(item);
 				AuctionsJson grpItem = map.get(item.getItem() + "|"
 						+ item.getBuyoutPerItem());
@@ -116,6 +116,7 @@ public class AucScan {
 								.getBuyoutPerItem()) {
 					grpItem.setQuantity(grpItem.getQuantity()
 							+ item.getQuantity());
+					grpItem.setBuyout(grpItem.getBuyout() + item.getBuyout());
 				} else {
 					grpItem = new AuctionsJson();
 					grpItem.setItem(item.getItem());
@@ -134,8 +135,7 @@ public class AucScan {
 		// item=72092/Ghost Iron Ore
 		int cnt = 0;
 		for (AuctionsJson item : aucData) {
-			println(AuctionsJson.toGSC(item.getBuyout() / item.getQuantity())
-					+ " " + item);
+			println(item);
 			++cnt;
 
 			if (cnt > 100) {

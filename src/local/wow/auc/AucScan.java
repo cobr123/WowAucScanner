@@ -86,21 +86,22 @@ public class AucScan {
 
 	public static boolean filter(AuctionsJson item) {
 		// распыление руды
-//		if (ORES.contains(item.getItem()) && item.getBuyoutPerItem() < 9000 && item.getBuyout() > 0) {
-//			return true;
-//		}
+		if (ORES.contains(item.getItem()) && item.getBuyoutPerItem() < 8000 && item.getBuyout() > 0) {
+			return true;
+		}
 		// распыление травы
 		if (LEAFS.contains(item.getItem()) && item.getBuyoutPerItem() <= 15000 && item.getBuyout() > 0) {
 			return true;
 		}
 		// "„ернила снова"
-		if (item.getItem() == 79254 && item.getBuyoutPerItem() <= 61000 && item.getBuyout() > 0) {
+		if (item.getItem() == 79254 && item.getBuyoutPerItem() <= 59000 && item.getBuyout() > 0) {
 			return true;
 		}
 		return false;
 	}
 
 	public static void main(String[] args) throws IOException {
+	    Stopwatch stopwatch = new Stopwatch();
 		URL filesUrl = new URL(
 				"http://eu.battle.net/api/wow/auction/data/azuregos");
 		boolean needUpdate = true;
@@ -122,13 +123,17 @@ public class AucScan {
 
 			URL aucUrl = new URL(newFiles.getUrl());
 			println("downloading data");
+		    stopwatch.start();
 			saveFile(aucUrl.openStream(), auctionsFile);
-			println("download complite");
+		    stopwatch.stop();
+			println("download complite in " + stopwatch);
 		}
 		println("loading data");
+	    stopwatch.start();
 		List<AuctionsJson> aucData = getAucData(new InputStreamReader(
 				new FileInputStream(auctionsFile), StandardCharsets.UTF_8));
-		println("loading data complete");
+	    stopwatch.stop();
+		println("loading data complete in " + stopwatch);
 
 		Map<String, AuctionsJson> map = new HashMap<String, AuctionsJson>();
 		// select item, buyout/qty, sum(buyout), sum(qty) from aucData group by item, buyout/qty

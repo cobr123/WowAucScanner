@@ -1,5 +1,12 @@
 package local.wow.auc;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 public class AuctionsJson implements Comparable<AuctionsJson> {
 	// {"auc":2065272742,"item":45736,"owner":"Рикки","bid":400150,"buyout":400400,"quantity":1,"timeLeft":"MEDIUM"},
 	protected long auc;
@@ -10,27 +17,68 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	protected long buyoutPerItem;
 	protected long quantity;
 	protected String timeLeft;
+	protected String itemCaption;
+	protected long profitBuyout;
+	protected long profitBid;
+	// распыление руды
+	private static final Set<Long> ORES = new HashSet<Long>(
+			Arrays.asList(new Long[] { 72092L, 72093L }));
+	// распыление травы
+	private static final Set<Long> LEAFS = new HashSet<Long>(
+			Arrays.asList(new Long[] { 72234L, 89639L, 79010L, 79011L, 72237L,
+					72235L }));
+
+	private static final Map<Long, String> ITEM_NAMES;
+	static {
+		Map<Long, String> aMap = new HashMap<Long, String>();
+		aMap.put(72092L, "Призрачная железная руда");
+		aMap.put(72093L, "Кипарит");
+		aMap.put(72234L, "Листья зеленого чая");
+		aMap.put(89639L, "Оскверненная трава");
+		aMap.put(79010L, "Снежная лилия");
+		aMap.put(79011L, "Дурногриб");
+		aMap.put(72237L, "Дождевой мак");
+		aMap.put(72235L, "Ваточник");
+		aMap.put(79254L, "Чернила снова");
+		aMap.put(79251L, "Теневой краситель");
+		ITEM_NAMES = Collections.unmodifiableMap(aMap);
+	}
 
 	public static String toGSC(long val) {
 		long gold;
 		long silver;
 		long copper;
+		StringBuilder result = new StringBuilder();
 
 		gold = val / 10000;
 		silver = (long) (Math.floor(val / 100) - gold * 100);
 		copper = val - gold * 10000 - silver * 100;
 
-		return "g" + gold + "s" + silver + "c" + copper;
+		if (gold != 0) {
+			result.append(gold).append("g");
+		}
+		if (silver != 0) {
+			result.append(Math.abs(silver)).append("s");
+		}
+		if (copper != 0) {
+			result.append(Math.abs(copper)).append("c");
+		}
+		if (result.toString().isEmpty()) {
+			result.append("0");
+		}
+
+		return result.toString();
 	}
 
 	public long getBuyoutPerItem() {
 		return buyoutPerItem;
 	}
+
 	private void refreshBuyoutPerItem() {
-		if (buyout == 0 || quantity == 0) {
-			buyoutPerItem = 0;
-		} else {
+		if (quantity != 0) {
 			buyoutPerItem = buyout / quantity;
+		} else {
+			buyoutPerItem = 0;
 		}
 	}
 
@@ -42,18 +90,27 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 		this.auc = Long.valueOf(auc);
 	}
 
+	public String getItemCaption() {
+		return itemCaption;
+	}
+
+	private void setItemCaption() {
+		this.itemCaption = ITEM_NAMES.get(item);
+	}
+
 	public long getItem() {
 		return item;
 	}
 
 	public void setItem(String item) {
-		this.item = Long.valueOf(item);
+		setItem(Long.valueOf(item));
 	}
-
 
 	public void setItem(long item) {
-		this.item =item;		
+		this.item = item;
+		setItemCaption();
 	}
+
 	public String getOwner() {
 		return owner;
 	}
@@ -74,6 +131,28 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	public void setBuyout(long buyout) {
 		this.buyout = buyout;
 		refreshBuyoutPerItem();
+		refreshProfitBuyout();
+	}
+
+	private void refreshProfitBuyout() {
+		final long ENCHANT_COST = 187500;
+		
+		if (quantity == 0 || buyout == 0) {
+			profitBuyout = 0;
+			return;
+		}
+		if (LEAFS.contains(item)) {
+			profitBuyout = (long) (ENCHANT_COST * Math
+					.floor((2.5 * quantity / 5) / 2 / 3) - buyout);
+		}
+		// "Чернила снова"
+		else if (item == 79254) {
+			profitBuyout = (long) ((ENCHANT_COST * Math.floor(quantity / 3)) - buyout);
+		}
+		// "Теневой краситель"
+		else if (item == 79251) {
+			profitBuyout = (long) ((ENCHANT_COST * Math.floor(quantity / 2 / 3)) - buyout);
+		}
 	}
 
 	public String getTimeLeft() {
@@ -91,11 +170,11 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	public void setQuantity(long quantity) {
 		this.quantity = quantity;
 		refreshBuyoutPerItem();
+		refreshProfitBuyout();
 	}
 
 	public void setQuantity(String quantity) {
-		this.quantity = Long.valueOf(quantity);
-		refreshBuyoutPerItem();
+		setQuantity(Long.valueOf(quantity));
 	}
 
 	public long getBid() {
@@ -203,12 +282,12 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 
 	@Override
 	public String toString() {
-		return new StringBuilder()
-				.append("item = ").append(item)
-				.append(", qty = ").append(quantity)
-				.append(", buyout = ").append(toGSC(buyout))
-				.append(", buyoutPerItem = ").append(toGSC(buyoutPerItem))
-				.append(", bid = ").append(toGSC(bid))
-				.toString();
+		return new StringBuilder().append("item = ").append(item)
+				.append(", qty = ").append(quantity).append(", buyout = ")
+				.append(toGSC(buyout)).append(", buyoutPerItem = ")
+				.append(toGSC(buyoutPerItem)).append(", bid = ")
+				.append(toGSC(bid)).append(", itemCaption = ")
+				.append(itemCaption).append(", profitBuyout = ")
+				.append(toGSC(profitBuyout)).toString();
 	}
 }

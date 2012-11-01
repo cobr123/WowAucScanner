@@ -10,18 +10,28 @@ import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
 
 public class AucScan {
+	// item=72092/Ghost Iron Ore
+	private static final Set<Long> ORES = new HashSet<Long>(
+			Arrays.asList(new Long[] { 72092L, 72093L }));
+	// распыление травы
+	private static final Set<Long> LEAFS = new HashSet<Long>(
+			Arrays.asList(new Long[] {72234L, 89639L, 79010L, 79011L, 72237L, 72235L}));
+
 	public static void saveFile(InputStream inputStreamReader, File out)
 			throws IOException {
 		FileOutputStream fos = null;
@@ -74,6 +84,22 @@ public class AucScan {
 				(long) files.get("lastModified"));
 	}
 
+	public static boolean filter(AuctionsJson item) {
+		// распыление руды
+//		if (ORES.contains(item.getItem()) && item.getBuyoutPerItem() < 9000 && item.getBuyout() > 0) {
+//			return true;
+//		}
+		// распыление травы
+		if (LEAFS.contains(item.getItem()) && item.getBuyoutPerItem() <= 15000 && item.getBuyout() > 0) {
+			return true;
+		}
+		// "Чернила снова"
+		if (item.getItem() == 79254 && item.getBuyoutPerItem() <= 61000 && item.getBuyout() > 0) {
+			return true;
+		}
+		return false;
+	}
+
 	public static void main(String[] args) throws IOException {
 		URL filesUrl = new URL(
 				"http://eu.battle.net/api/wow/auction/data/azuregos");
@@ -89,7 +115,8 @@ public class AucScan {
 				needUpdate = false;
 			}
 		}
-		println("needUpdate = " + needUpdate);
+		println("needUpdate = " + needUpdate + ", "
+				+ newFiles.getLastModifiedDate());
 		if (needUpdate) {
 			saveFile(filesUrl.openStream(), file);
 
@@ -101,13 +128,12 @@ public class AucScan {
 		println("loading data");
 		List<AuctionsJson> aucData = getAucData(new InputStreamReader(
 				new FileInputStream(auctionsFile), StandardCharsets.UTF_8));
-		println("load data complite");
+		println("loading data complete");
 
 		Map<String, AuctionsJson> map = new HashMap<String, AuctionsJson>();
-		// select item, buyout, sum(qty) from aucData group by item, buyout
+		// select item, buyout/qty, sum(buyout), sum(qty) from aucData group by item, buyout/qty
 		for (AuctionsJson item : aucData) {
-			if ((item.getItem() == 72092 || item.getItem() == 72093)
-					&& item.getBuyoutPerItem() < 40000 && item.getBuyout() > 0) {
+			if (filter(item)) {
 				// println(item);
 				AuctionsJson grpItem = map.get(item.getItem() + "|"
 						+ item.getBuyoutPerItem());
@@ -132,16 +158,16 @@ public class AucScan {
 		Collections.sort(aucData, new CompareByBuyout());
 		// println(aucData);
 
-		// item=72092/Ghost Iron Ore
 		int cnt = 0;
 		for (AuctionsJson item : aucData) {
 			println(item);
 			++cnt;
 
-			if (cnt > 100) {
+			if (cnt > 9) {
 				break;
 			}
 		}
+		println("done.");
 	}
 
 	private static void println(Object object) {

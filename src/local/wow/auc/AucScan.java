@@ -1,12 +1,16 @@
 package local.wow.auc;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +34,8 @@ public class AucScan {
 			Arrays.asList(new Long[] { 72092L, 72093L }));
 	// распыление травы
 	private static final Set<Long> LEAFS = new HashSet<Long>(
-			Arrays.asList(new Long[] {72234L, 89639L, 79010L, 79011L, 72237L, 72235L}));
+			Arrays.asList(new Long[] { 72234L, 89639L, 79010L, 79011L, 72237L,
+					72235L }));
 
 	public static void saveFile(InputStream inputStreamReader, File out)
 			throws IOException {
@@ -86,22 +91,86 @@ public class AucScan {
 
 	public static boolean filter(AuctionsJson item) {
 		// распыление руды
-		if (ORES.contains(item.getItem()) && item.getBuyoutPerItem() < 8000 && item.getBuyout() > 0) {
+		if (ORES.contains(item.getItem()) && item.getBuyoutPerItem() < 8000
+				&& item.getBuyout() > 0) {
 			return true;
 		}
 		// распыление травы
-		if (LEAFS.contains(item.getItem()) && item.getBuyoutPerItem() <= 15000 && item.getBuyout() > 0) {
+		if (LEAFS.contains(item.getItem()) && item.getBuyoutPerItem() <= 15000
+				&& item.getBuyout() > 0) {
 			return true;
 		}
 		// "„ернила снова"
-		if (item.getItem() == 79254 && item.getBuyoutPerItem() <= 59000 && item.getBuyout() > 0) {
+		if (item.getItem() == 79254 && item.getBuyoutPerItem() <= 59000
+				&& item.getBuyout() > 0) {
+			return true;
+		}
+		// "“еневой краситель"
+		if (item.getItem() == 79251 && item.getBuyoutPerItem() <= 30000
+				&& item.getBuyout() > 0) {
 			return true;
 		}
 		return false;
 	}
 
+	public static InputStream download(URL url) throws IOException {
+		File file = new File("files.json.tmp");
+		BufferedOutputStream output = null;
+		InputStream input = null;
+		try {
+			URLConnection connection = null;
+
+			connection = url.openConnection();
+			connection.connect();
+			// this will be useful so that you can show a typical 0-100%
+			// progress bar
+			int fileLength = connection.getContentLength();
+
+			// download the file
+			input = new BufferedInputStream(url.openStream());
+			output = new BufferedOutputStream(new FileOutputStream(file));
+
+			byte data[] = new byte[1024];
+			long total = 0;
+			int count;
+			int percent = 0;
+			int percentPrev = -1;
+			while ((count = input.read(data)) != -1) {
+				total += count;
+				// publishing the progress....
+				percent = (int) Math.floor(total * 100 / fileLength);
+				if (percentPrev != percent) {
+					percentPrev = percent;
+					publishProgress(percent);
+				}
+				output.write(data, 0, count);
+			}
+		} finally {
+			if (output != null) {
+				output.flush();
+				output.close();
+			}
+			if (input != null) {
+				input.close();
+			}
+		}
+		return new FileInputStream(file);
+	}
+
+	private static void publishProgress(final int i) {
+		if (i % 10 == 0 || i == 0) {
+			print(i + "%");
+		} 
+		else if (i % 2 == 0){
+			print("=");
+		}
+		if(i == 100){
+			print("\n");
+		}
+	}
+
 	public static void main(String[] args) throws IOException {
-	    Stopwatch stopwatch = new Stopwatch();
+		Stopwatch stopwatch = new Stopwatch();
 		URL filesUrl = new URL(
 				"http://eu.battle.net/api/wow/auction/data/azuregos");
 		boolean needUpdate = true;
@@ -123,20 +192,22 @@ public class AucScan {
 
 			URL aucUrl = new URL(newFiles.getUrl());
 			println("downloading data");
-		    stopwatch.start();
-			saveFile(aucUrl.openStream(), auctionsFile);
-		    stopwatch.stop();
+			stopwatch.start();
+			saveFile(download(aucUrl), auctionsFile);
+			// saveFile(aucUrl.openStream(), auctionsFile);
+			stopwatch.stop();
 			println("download complite in " + stopwatch);
 		}
 		println("loading data");
-	    stopwatch.start();
+		stopwatch.start();
 		List<AuctionsJson> aucData = getAucData(new InputStreamReader(
 				new FileInputStream(auctionsFile), StandardCharsets.UTF_8));
-	    stopwatch.stop();
+		stopwatch.stop();
 		println("loading data complete in " + stopwatch);
 
 		Map<String, AuctionsJson> map = new HashMap<String, AuctionsJson>();
-		// select item, buyout/qty, sum(buyout), sum(qty) from aucData group by item, buyout/qty
+		// select item, buyout/qty, sum(buyout), sum(qty) from aucData group by
+		// item, buyout/qty
 		for (AuctionsJson item : aucData) {
 			if (filter(item)) {
 				// println(item);
@@ -177,5 +248,9 @@ public class AucScan {
 
 	private static void println(Object object) {
 		System.out.println(object);
+	}
+
+	private static void print(Object object) {
+		System.out.print(object);
 	}
 }

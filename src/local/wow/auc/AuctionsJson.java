@@ -19,6 +19,7 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	protected String timeLeft;
 	protected String itemCaption;
 	protected long profitBuyout;
+	private boolean profitBuyoutChanged = false;
 	protected long profitBid;
 	// распыление руды
 	private static final Set<Long> ORES = new HashSet<Long>(
@@ -131,19 +132,27 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	public void setBuyout(long buyout) {
 		this.buyout = buyout;
 		refreshBuyoutPerItem();
-		refreshProfitBuyout();
+		profitBuyoutChanged = true;
+	}
+
+	public long getProfitBuyout() {
+		if (profitBuyoutChanged) {
+			refreshProfitBuyout();
+			profitBuyoutChanged = false;
+		}
+		return profitBuyout;
 	}
 
 	private void refreshProfitBuyout() {
 		final long ENCHANT_COST = 187500;
-		
+
 		if (quantity == 0 || buyout == 0) {
 			profitBuyout = 0;
 			return;
 		}
 		if (LEAFS.contains(item)) {
-			profitBuyout = (long) (ENCHANT_COST * Math
-					.floor((2.5 * quantity / 5) / 2 / 3) - buyout);
+			profitBuyout = (long) (ENCHANT_COST
+					* Math.floor((2.5 * quantity / 5) / 2 / 3) - buyout);
 		}
 		// "Чернила снова"
 		else if (item == 79254) {
@@ -170,7 +179,7 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 	public void setQuantity(long quantity) {
 		this.quantity = quantity;
 		refreshBuyoutPerItem();
-		refreshProfitBuyout();
+		profitBuyoutChanged = true;
 	}
 
 	public void setQuantity(String quantity) {
@@ -288,6 +297,6 @@ public class AuctionsJson implements Comparable<AuctionsJson> {
 				.append(toGSC(buyoutPerItem)).append(", bid = ")
 				.append(toGSC(bid)).append(", itemCaption = ")
 				.append(itemCaption).append(", profitBuyout = ")
-				.append(toGSC(profitBuyout)).toString();
+				.append(toGSC(getProfitBuyout())).toString();
 	}
 }
